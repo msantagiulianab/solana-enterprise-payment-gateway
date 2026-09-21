@@ -1,0 +1,9 @@
+# Force LF for executable/container files so they run correctly inside Linux
+# build containers even when checked out on Windows (core.autocrlf=true).
+mvnw               text eol=lf
+mvnw.cmd           text eol=crlf
+*.sh               text eol=lf
+Dockerfile         text eol=lf
+docker-compose.yml text eol=lf
+*.yml              text eol=lf
+*.yaml             text eol=lf
