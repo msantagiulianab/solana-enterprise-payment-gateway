@@ -59,6 +59,9 @@ public class PaymentAuditRecord {
     @Column(name = "status", nullable = false, length = 32)
     private PaymentAuditStatus status;
 
+    @Column(name = "tx_signature", length = 88)
+    private String txSignature;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -112,6 +115,26 @@ public class PaymentAuditRecord {
 
     public PaymentAuditStatus getStatus() {
         return status;
+    }
+
+    public String getTxSignature() {
+        return txSignature;
+    }
+
+    /**
+     * Transitions a verified voucher record into the settled state after its
+     * cumulative amount has been swept on-chain. The only legal transition is
+     * {@code VERIFIED -> SETTLED}; all voucher fields remain immutable.
+     */
+    public void markSettled(String txSignature) {
+        if (this.status != PaymentAuditStatus.VERIFIED) {
+            throw new IllegalStateException("Only VERIFIED records can transition to SETTLED");
+        }
+        if (txSignature == null || txSignature.isBlank()) {
+            throw new IllegalArgumentException("txSignature is required for settlement");
+        }
+        this.status = PaymentAuditStatus.SETTLED;
+        this.txSignature = txSignature;
     }
 
     public Instant getCreatedAt() {

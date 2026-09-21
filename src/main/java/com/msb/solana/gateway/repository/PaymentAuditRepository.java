@@ -19,5 +19,7 @@ public interface PaymentAuditRepository extends JpaRepository<PaymentAuditRecord
 
     Optional<PaymentAuditRecord> findFirstByChannelIdAndNonce(String channelId, long nonce);
 
+    Optional<PaymentAuditRecord> findTopByChannelIdOrderByNonceDesc(String channelId);
+
     boolean existsByChannelIdAndNonce(String channelId, long nonce);
 }

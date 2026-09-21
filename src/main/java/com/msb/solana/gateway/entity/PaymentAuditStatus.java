@@ -5,5 +5,6 @@ package com.msb.solana.gateway.entity;
  * Stored as a varchar-backed enum column ({@code @Enumerated(EnumType.STRING)}).
  */
 public enum PaymentAuditStatus {
-    VERIFIED
+    VERIFIED,
+    SETTLED
 }
