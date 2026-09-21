@@ -16,15 +16,16 @@ public class ChannelVoucherVerifier {
 
     private final Ed25519SignatureVerifier signatureVerifier;
     private final SolanaAddressValidator addressValidator;
+    private final EscrowBalanceProvider escrowBalanceProvider;
 
     private final Map<String, Long> lastSeenNonces = new ConcurrentHashMap<>();
-    private final Map<String, Long> channelDeposits = new ConcurrentHashMap<>();
 
-    public ChannelVoucherVerifier(Ed25519SignatureVerifier signatureVerifier, SolanaAddressValidator addressValidator) {
+    public ChannelVoucherVerifier(Ed25519SignatureVerifier signatureVerifier,
+                                  SolanaAddressValidator addressValidator,
+                                  EscrowBalanceProvider escrowBalanceProvider) {
         this.signatureVerifier = signatureVerifier;
         this.addressValidator = addressValidator;
-        // Default demo channel deposit for devnet testing
-        channelDeposits.put("chan_demo_solana_001", 1_000_000L); // 1.000000 USDC
+        this.escrowBalanceProvider = escrowBalanceProvider;
     }
 
     public boolean verifyVoucher(PaymentVoucher voucher, long requiredAmount) {
@@ -45,10 +46,10 @@ public class ChannelVoucherVerifier {
             return false;
         }
 
-        Long depositCap = channelDeposits.getOrDefault(voucher.channelId(), 0L);
-        if (voucher.cumulativeAmountAtomic() > depositCap) {
-            log.warn("Voucher rejection: Cumulative spend {} exceeds channel deposit ceiling {}",
-                    voucher.cumulativeAmountAtomic(), depositCap);
+        long verifiedDepositCeiling = escrowBalanceProvider.getVerifiedDepositCeiling(voucher.channelId());
+        if (voucher.cumulativeAmountAtomic() > verifiedDepositCeiling) {
+            log.warn("Voucher rejection: Cumulative spend {} exceeds verified escrow deposit ceiling {} for channel {}",
+                    voucher.cumulativeAmountAtomic(), verifiedDepositCeiling, voucher.channelId());
             return false;
         }
 
@@ -73,7 +74,5 @@ public class ChannelVoucherVerifier {
      */
     public void resetState() {
         lastSeenNonces.clear();
-        channelDeposits.clear();
-        channelDeposits.put("chan_demo_solana_001", 1_000_000L);
     }
 }

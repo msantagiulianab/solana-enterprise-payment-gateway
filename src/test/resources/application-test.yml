@@ -24,3 +24,10 @@ spring:
     # normally; this only guards against a pre-populated test schema.
     baseline-on-migrate: true
     baseline-version: 1
+
+solana:
+  rpc:
+    # Keep the suite fast, deterministic, and independent of external internet
+    # / RPC flakiness. Escrow verification resolves to the deterministic demo
+    # ceiling without ever dialing a Solana node.
+    mock-mode: true

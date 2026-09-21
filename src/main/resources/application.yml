@@ -41,3 +41,10 @@ x402:
   asset: "USDC"
   price-atomic-units: 5000
   unit: "per-call"
+
+solana:
+  rpc:
+    url: ${SOLANA_RPC_URL:https://api.devnet.solana.com}
+    mock-mode: ${SOLANA_RPC_MOCK_MODE:false}
+    # Short in-memory cache TTL for the x402 escrow hot path (cache hit <5ms).
+    cache-ttl-millis: 5000
