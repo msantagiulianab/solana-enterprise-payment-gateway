@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -60,7 +61,7 @@ class SolanaRpcClientTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        client = new SolanaRpcClient(objectMapper, httpClient, RPC_URL);
+        client = new SolanaRpcClient(objectMapper, httpClient, RPC_URL, false);
     }
 
     private void stubResponse(int statusCode, String body) throws Exception {
@@ -162,6 +163,64 @@ class SolanaRpcClientTest {
         stubResponse(200, body);
 
         assertThat(client.getLatestBlockhash()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("sendTransaction serializes base64 encoding + confirmed preflight and parses the signature")
+    void sendTransaction_serializesConfigAndParsesSignature() throws Exception {
+        String body = """
+                {"jsonrpc":"2.0","result":"5Fy1kG8Q1rLm2NtXp3VcB7dE9wZ4uY6hJ7kL0mN1oPqAbCdEfGhIjKlMnOpQrStUvWxYz","id":3}
+                """;
+        stubResponse(200, body);
+
+        String wireTx = "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        Optional<String> result = client.sendTransaction(wireTx);
+
+        assertThat(result).contains("5Fy1kG8Q1rLm2NtXp3VcB7dE9wZ4uY6hJ7kL0mN1oPqAbCdEfGhIjKlMnOpQrStUvWxYz");
+
+        ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient).send(captor.capture(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any());
+
+        JsonNode json = objectMapper.readTree(requestBody(captor.getValue()));
+        assertThat(json.get("method").asText()).isEqualTo("sendTransaction");
+        assertThat(json.get("params").get(0).asText()).isEqualTo(wireTx);
+        assertThat(json.get("params").get(1).get("encoding").asText()).isEqualTo("base64");
+        assertThat(json.get("params").get(1).get("preflightCommitment").asText()).isEqualTo("confirmed");
+    }
+
+    @Test
+    @DisplayName("sendTransaction returns empty on a JSON-RPC error payload")
+    void sendTransaction_returnsEmptyOnJsonRpcError() throws Exception {
+        String body = """
+                {"jsonrpc":"2.0","error":{"code":-32002,"message":"Transaction simulation failed"},"id":3}
+                """;
+        stubResponse(200, body);
+
+        assertThat(client.sendTransaction("AQAAAA")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("sendTransaction in mock mode returns a deterministic signature without network calls")
+    void sendTransaction_mockModeReturnsDeterministicSignatureWithoutNetwork() {
+        SolanaRpcClient mockClient = new SolanaRpcClient(objectMapper, httpClient, RPC_URL, true);
+
+        String wireTx = "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        Optional<String> first = mockClient.sendTransaction(wireTx);
+        Optional<String> second = mockClient.sendTransaction(wireTx);
+
+        assertThat(first).isPresent();
+        assertThat(first).isEqualTo(second);
+        verifyNoInteractions(httpClient);
+    }
+
+    @Test
+    @DisplayName("getLatestBlockhash in mock mode returns a deterministic blockhash without network calls")
+    void getLatestBlockhash_mockModeReturnsDeterministicBlockhashWithoutNetwork() {
+        SolanaRpcClient mockClient = new SolanaRpcClient(objectMapper, httpClient, RPC_URL, true);
+
+        assertThat(mockClient.getLatestBlockhash()).isPresent();
+        assertThat(mockClient.getLatestBlockhash()).isEqualTo(mockClient.getLatestBlockhash());
+        verifyNoInteractions(httpClient);
     }
 
     private static String requestBody(HttpRequest request) {

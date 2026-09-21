@@ -6,6 +6,7 @@ import com.msb.solana.gateway.rpc.model.AccountInfoResponse;
 import com.msb.solana.gateway.rpc.model.LatestBlockhashResponse;
 import com.msb.solana.gateway.rpc.model.RpcRequest;
 import com.msb.solana.gateway.rpc.model.RpcResponse;
+import com.msb.solana.gateway.serialization.Base58;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +18,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,14 +46,17 @@ public class SolanaRpcClient {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final String rpcUrl;
+    private final boolean mockMode;
     private final AtomicLong requestId = new AtomicLong(1);
 
     public SolanaRpcClient(ObjectMapper objectMapper,
                            HttpClient httpClient,
-                           @Value("${solana.rpc.url:https://api.devnet.solana.com}") String rpcUrl) {
+                           @Value("${solana.rpc.url:https://api.devnet.solana.com}") String rpcUrl,
+                           @Value("${solana.rpc.mock-mode:false}") boolean mockMode) {
         this.objectMapper = objectMapper;
         this.httpClient = httpClient;
         this.rpcUrl = rpcUrl;
+        this.mockMode = mockMode;
     }
 
     /**
@@ -84,6 +91,10 @@ public class SolanaRpcClient {
      * @return the base58-encoded blockhash, or {@link Optional#empty()} on failure
      */
     public Optional<String> getLatestBlockhash() {
+        if (mockMode) {
+            return Optional.of(deterministicMockBlockhash());
+        }
+
         RpcResponse<LatestBlockhashResponse> response = call(
                 "getLatestBlockhash",
                 List.of(Map.of("commitment", COMMITMENT_CONFIRMED)),
@@ -95,6 +106,58 @@ public class SolanaRpcClient {
             return Optional.empty();
         }
         return Optional.ofNullable(response.result().value().blockhash());
+    }
+
+    /**
+     * Submits a fully-signed, base64-encoded wire transaction to the node with
+     * {@code encoding: "base64"} and {@code preflightCommitment: "confirmed"}.
+     *
+     * <p>In mock mode no network call is issued; instead a deterministic base58
+     * transaction signature is derived from the transaction payload so callers
+     * and integration tests observe a stable, replayable signature.
+     *
+     * @param base64EncodedWireTx base64-encoded serialized signed transaction
+     * @return the base58 transaction signature, or {@link Optional#empty()} when
+     *         the node returns an error or cannot be reached
+     */
+    public Optional<String> sendTransaction(String base64EncodedWireTx) {
+        if (mockMode) {
+            return Optional.of(deterministicMockSignature(base64EncodedWireTx));
+        }
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("encoding", "base64");
+        config.put("preflightCommitment", COMMITMENT_CONFIRMED);
+
+        RpcResponse<String> response = call(
+                "sendTransaction",
+                List.of(base64EncodedWireTx, config),
+                new TypeReference<>() {
+                });
+
+        if (response == null || response.hasError() || response.result() == null
+                || response.result().isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(response.result());
+    }
+
+    private String deterministicMockBlockhash() {
+        byte[] digest = sha256("solana-devnet-mock-blockhash".getBytes(StandardCharsets.UTF_8));
+        return Base58.encode(digest);
+    }
+
+    private String deterministicMockSignature(String base64EncodedWireTx) {
+        byte[] txBytes = Base64.getDecoder().decode(base64EncodedWireTx);
+        return Base58.encode(sha256(txBytes));
+    }
+
+    private byte[] sha256(byte[] input) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(input);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available in this JVM", e);
+        }
     }
 
     private <T> T call(String method, Object params, TypeReference<T> typeReference) {
