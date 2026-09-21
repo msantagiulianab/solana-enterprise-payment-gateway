@@ -1,0 +1,27 @@
+# Local development infrastructure for the Solana Enterprise Payment Gateway.
+# Spins up PostgreSQL 16 for the append-only x402 payment audit ledger.
+#
+# Usage:
+#   docker compose up -d            # start PostgreSQL
+#   docker compose down -v          # stop and wipe data volume
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: solana-payment-gateway-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: solana_payment_gateway
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solana_payment_gateway"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
