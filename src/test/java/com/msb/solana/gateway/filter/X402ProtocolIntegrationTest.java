@@ -3,6 +3,7 @@ package com.msb.solana.gateway.filter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msb.solana.gateway.model.PaymentVoucher;
 import com.msb.solana.gateway.serialization.Base58;
+import com.msb.solana.gateway.repository.PaymentAuditRepository;
 import com.msb.solana.gateway.service.ChannelVoucherVerifier;
 import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator;
 import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters;
@@ -16,17 +17,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.security.SecureRandom;
 import java.util.Base64;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class X402ProtocolIntegrationTest {
 
     @Autowired
@@ -37,6 +41,9 @@ class X402ProtocolIntegrationTest {
 
     @Autowired
     private ChannelVoucherVerifier voucherVerifier;
+
+    @Autowired
+    private PaymentAuditRepository auditRepository;
 
     private Ed25519PrivateKeyParameters clientPrivateKey;
     private String clientPubkeyBase58;
@@ -103,6 +110,10 @@ class X402ProtocolIntegrationTest {
                 .andExpect(header().exists("X-PAYMENT-RESPONSE"))
                 .andExpect(jsonPath("$.address", is("4Nd1mBQtrMJVYVfKf2PJy9NZGibCcTRxpETqdrBHu19Y")))
                 .andExpect(jsonPath("$.verdict", is("CLEAR_TO_TRANSACT")));
+
+        // The successfully verified voucher must be appended to the audit ledger.
+        assertThat(auditRepository.findByChannelId("chan_demo_solana_001"))
+                .anyMatch(record -> record.getNonce() == 10L);
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.msb.solana.gateway.model.PaymentRequiredChallenge;
 import com.msb.solana.gateway.model.PaymentSettlementReceipt;
 import com.msb.solana.gateway.model.PaymentVoucher;
 import com.msb.solana.gateway.service.ChannelVoucherVerifier;
+import com.msb.solana.gateway.service.PaymentAuditService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,16 +23,19 @@ import java.util.Base64;
 public class X402PaymentFilter extends OncePerRequestFilter {
 
     private final ChannelVoucherVerifier voucherVerifier;
+    private final PaymentAuditService auditService;
     private final ObjectMapper objectMapper;
     private final String escrowPubkey;
     private final long unitPriceAtomic;
 
     public X402PaymentFilter(
             ChannelVoucherVerifier voucherVerifier,
+            PaymentAuditService auditService,
             ObjectMapper objectMapper,
             @Value("${x402.escrow-pubkey:7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU}") String escrowPubkey,
             @Value("${x402.price-atomic-units:5000}") long unitPriceAtomic) {
         this.voucherVerifier = voucherVerifier;
+        this.auditService = auditService;
         this.objectMapper = objectMapper;
         this.escrowPubkey = escrowPubkey;
         this.unitPriceAtomic = unitPriceAtomic;
@@ -69,6 +73,9 @@ public class X402PaymentFilter extends OncePerRequestFilter {
                 response.getWriter().write("{\"error\": \"PAYMENT_REJECTED\", \"message\": \"Signature invalid, replay detected, or ceiling exceeded\"}");
                 return;
             }
+
+            // Append the verified voucher to the immutable audit ledger.
+            auditService.recordVerifiedVoucher(voucher);
 
             PaymentSettlementReceipt receipt = new PaymentSettlementReceipt(
                     voucher.channelId(),
