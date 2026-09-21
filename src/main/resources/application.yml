@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: solana-enterprise-payment-gateway
+
+x402:
+  network: "solana:devnet"
+  escrow-pubkey: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+  asset: "USDC"
+  price-atomic-units: 5000
+  unit: "per-call"
