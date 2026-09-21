@@ -33,7 +33,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://solana-payment-gateway-db:5432/solana_payment_gateway
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres_secure_password
-      SOLANA_RPC_MOCK_MODE: "false"
+      # Deterministic, offline mock mode keeps the local stack and the automated
+      # smoke test (smoke-test.sh) independent of devnet RPC flakiness and funded
+      # accounts. Set to "false" to exercise live devnet settlement sweeps.
+      SOLANA_RPC_MOCK_MODE: "true"
       SOLANA_RPC_URL: https://api.devnet.solana.com
     depends_on:
       solana-payment-gateway-db:

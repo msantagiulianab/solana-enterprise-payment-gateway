@@ -49,6 +49,17 @@ class SolanaEscrowVerifierTest {
     }
 
     @Test
+    @DisplayName("Mock mode returns the demo ceiling for the smoke-test channel")
+    void mockMode_returnsCeilingForSmokeTestChannel() {
+        SolanaEscrowVerifier verifier = new SolanaEscrowVerifier(rpcClient, true, 5000L, ESCROW);
+
+        assertThat(verifier.getVerifiedDepositCeiling(SolanaEscrowVerifier.SMOKE_TEST_CHANNEL_ID))
+                .isEqualTo(SolanaEscrowVerifier.MOCK_CEILING_ATOMIC);
+
+        verifyNoInteractions(rpcClient);
+    }
+
+    @Test
     @DisplayName("Mock mode fails closed for an unknown channel")
     void mockMode_unknownChannelFailsClosed() {
         SolanaEscrowVerifier verifier = new SolanaEscrowVerifier(rpcClient, true, 5000L, ESCROW);

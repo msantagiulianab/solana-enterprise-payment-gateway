@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -29,7 +30,10 @@ public class SolanaEscrowVerifier implements EscrowBalanceProvider {
     private static final Logger log = LoggerFactory.getLogger(SolanaEscrowVerifier.class);
 
     public static final String MOCK_CHANNEL_ID = "chan_demo_solana_001";
+    public static final String SMOKE_TEST_CHANNEL_ID = "chan_smoke_test_001";
     public static final long MOCK_CEILING_ATOMIC = 1_000_000L;
+
+    private static final Set<String> MOCK_CHANNEL_IDS = Set.of(MOCK_CHANNEL_ID, SMOKE_TEST_CHANNEL_ID);
 
     private final SolanaRpcClient rpcClient;
     private final boolean mockMode;
@@ -78,7 +82,7 @@ public class SolanaEscrowVerifier implements EscrowBalanceProvider {
     }
 
     private long mockCeiling(String channelId) {
-        if (MOCK_CHANNEL_ID.equals(channelId)) {
+        if (MOCK_CHANNEL_IDS.contains(channelId)) {
             return MOCK_CEILING_ATOMIC;
         }
         log.warn("Escrow verification: no mock ceiling configured for channel {}", channelId);
