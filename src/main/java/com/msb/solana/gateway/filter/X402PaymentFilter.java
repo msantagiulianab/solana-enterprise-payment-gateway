@@ -44,6 +44,10 @@ public class X402PaymentFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
+        // Administrative settlement sweeps are not paid x402 resources.
+        if (path.startsWith("/api/v1/settlement/")) {
+            return true;
+        }
         return !path.startsWith("/api/v1/");
     }
 

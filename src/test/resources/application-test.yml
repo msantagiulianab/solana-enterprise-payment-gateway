@@ -31,3 +31,6 @@ solana:
     # / RPC flakiness. Escrow verification resolves to the deterministic demo
     # ceiling without ever dialing a Solana node.
     mock-mode: true
+  gateway:
+    treasury-pubkey: "4Nd1mBQtrMJVYVfKf2PJy9NZGibCcTRxpETqdrBHu19Y"
+    mock-private-key: "4wBqpZM9xaSheZzJSMawUKKwhdpChKbZ5eu5ky4Vigw"
