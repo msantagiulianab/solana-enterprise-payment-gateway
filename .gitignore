@@ -1,0 +1,12 @@
+target/
+build/
+.gradle/
+*.class
+*.jar
+*.war
+.idea/
+*.iml
+.vscode/
+.DS_Store
+.env
+application-local.properties

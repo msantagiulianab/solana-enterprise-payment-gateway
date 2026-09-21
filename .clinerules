@@ -1,0 +1,67 @@
+# ==============================================================================
+# CLINE SYSTEM DIRECTIVES: Solana Enterprise Payment Gateway (x402)
+# Architecture: Java 21 | Spring Boot 3.4+ | Pure JVM Cryptography | x402 Protocol
+# ==============================================================================
+
+## 1. OFFICIAL DOCUMENTATION & PROTOCOL REFERENCES
+Always strictly align architecture, wire formats, and headers with official standards:
+- Official x402 Standard & RFCs: https://github.com/x402-foundation/x402 (Standardized by Coinbase / x402-foundation)
+- Solana Core Protocol & RPC: https://solana.com/docs & https://solana.com/x402/what-is-x402
+- Linux Foundation Open API / HTTP 402 Semantics: RFC 9110 (HTTP Semantics, Section 15.5.3)
+
+## 2. THE X402 PROTOCOL SPECIFICATION (WIRE HEADERS)
+The gateway must implement the official x402 HTTP challenge-and-response protocol:
+1. CHALLENGE (Server -> Client on missing/invalid payment):
+   - Status: HTTP 402 Payment Required
+   - Header: PAYMENT-REQUIRED: <Base64-encoded JSON PaymentRequired object>
+   - Payload schema must contain:
+     * x402Version: 2
+     * scheme: "channel" | "exact"
+     * network: "solana:devnet" (or "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" for mainnet)
+     * escrowAddress: Base58 string (escrow channel PDA or settlement wallet)
+     * asset: "USDC" | "SOL"
+     * priceAtomicUnits: Long (e.g. 5000 for 0.005 USDC)
+     * unit: "per-call"
+2. PAYMENT PRESENTATION (Client -> Server on retry):
+   - Header: PAYMENT-SIGNATURE: <Base64-encoded JSON PaymentPayload object>
+   - Contains signed off-chain voucher: channelId, cumulativeAmount, nonce, and Ed25519 signature.
+3. SETTLEMENT RECEIPT (Server -> Client on successful 200 OK):
+   - Header: PAYMENT-RESPONSE: <Base64-encoded JSON SettlementResponse>
+
+## 3. CORE ARCHITECTURAL INVARIANTS (NON-NEGOTIABLE)
+- ZERO EXTERNAL RUNTIME DEPENDENCIES FOR WEB3:
+  * NEVER introduce Node.js sidecars, python bridges, or unvetted third-party Web3 Java wrappers.
+  * Use JVM-native Ed25519 verification (BouncyCastle bcprov-jdk18on or JDK 21 EdEC).
+  * Use zero-dependency byte serializers for Compact-u16, Base58 encoding, and byte-buffer packing.
+- LATENCY BUDGET FOR HOT-PATH VERIFICATION:
+  * The x402 Filter MUST verify off-chain payment vouchers in MEMORY in <5ms.
+  * NEVER make a synchronous Solana RPC network call on the hot HTTP request path.
+  * Escrow state and channel balances are verified against local cache / PostgreSQL connection pools.
+- FAIL-CLOSED COMPLIANCE:
+  * Missing header -> HTTP 402 Payment Required.
+  * Tampered signature, depleted channel deposit, or stale nonce -> HTTP 403 Forbidden.
+  * Expired nonce / replay attack MUST be rejected immediately and logged to the audit ledger.
+
+## 4. CODE CONVENTIONS & CODING RIGOR
+- Java 21 Features: Utilize records, pattern matching, modern switch expressions, and sealed interfaces where appropriate.
+- Immutability: DTOs, Vouchers, and PaymentRequirements must be immutable Java records.
+- Spring Boot:
+  * Filter implementation must extend OncePerRequestFilter.
+  * Use constructor injection (no @Autowired on fields).
+  * Strict separation: Filter -> VerifierService -> EscrowLedgerRepository.
+- Database: Append-only PostgreSQL audit trail. Never mutate historical voucher execution records.
+
+## 5. TEST-DRIVEN DEVELOPMENT (TDD) MANDATE
+- Every component must have unit/integration tests using JUnit 5 and Mockito before being considered complete.
+- MockMvc tests must verify:
+  1. Unauthenticated request -> HTTP 402 with correct Base64 PAYMENT-REQUIRED header.
+  2. Valid voucher header -> HTTP 200 OK + downstream resource payload + PAYMENT-RESPONSE header.
+  3. Tampered signature -> 403 Forbidden (fail-closed).
+  4. Replayed/stale nonce -> 403 Forbidden with audit logging.
+  5. Insufficient channel balance -> 402/403 with balance warning.
+- Target test coverage: >95% for cryptographic and filter components.
+
+## 6. CLINE / DEEPSEEK BEHAVIORAL RULES
+- Do not add conversational fluff in files or commit messages.
+- Always check and run Maven tests (`./mvnw test` or `mvn test`) after writing code to verify that all tests pass green.
+- Provide clean, deterministic code without leaving placeholder comments like "// TODO: implement this".
