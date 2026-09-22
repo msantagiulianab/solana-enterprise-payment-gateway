@@ -1,0 +1,26 @@
+[
+  {
+    "address": "Fc1EwQUZyTEagaDvA1utHXCcZNyG1x2PLt2DfNu1cJdH",
+    "category": "OFAC_SANCTIONED",
+    "riskScore": 100,
+    "description": "OFAC Specially Designated Nationals (SDN) listed Solana address"
+  },
+  {
+    "address": "8MycFWXtDrHyEw7pQgzMXFrKUT94N9uso962Jtp3vt4X",
+    "category": "EXPLOIT_DRAINER",
+    "riskScore": 100,
+    "description": "Known Mango Markets exploit / drainer marker"
+  },
+  {
+    "address": "93E5fAKk9NsqSrtZTr5Jk2YDLEmxZpNh7eyoi9M9sovw",
+    "category": "EXPLOIT_DRAINER",
+    "riskScore": 100,
+    "description": "Wormhole bridge exploiter marker"
+  },
+  {
+    "address": "82acypp8u1GhkSDb2BwpMttSYQngv9GRw3mzbKJZan79",
+    "category": "HIGH_RISK_MIXER",
+    "riskScore": 100,
+    "description": "High-risk transaction mixer / obfuscation service"
+  }
+]
