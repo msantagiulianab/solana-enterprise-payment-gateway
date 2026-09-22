@@ -1,0 +1,37 @@
+{
+  "name": "@solana-gateway/x402-mcp-server",
+  "version": "1.0.0",
+  "description": "Zero-bloat Model Context Protocol server exposing the x402 screen-address compliance endpoint to AI agents (Claude Desktop, Cursor, ElizaOS).",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "x402-mcp-server": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "npm run build && node --test test/base58.test.js test/ed25519.test.js test/x402-client.test.js test/mcp-server.test.js",
+    "test:tool": "npm run build && node test-agent-call.js"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "x402",
+    "solana",
+    "compliance",
+    "sanctions",
+    "ed25519"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "typescript": "^5.5.4"
+  }
+}

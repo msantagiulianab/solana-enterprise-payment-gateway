@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "x402-compliance": {
+      "command": "node",
+      "args": [
+        "C:/Development/solana-enterprise-payment-gateway/agent-tools/mcp-server/dist/index.js"
+      ],
+      "env": {
+        "GATEWAY_BASE_URL": "http://localhost:8080",
+        "X402_CHANNEL_ID": "chan_smoke_test_001"
+      }
+    }
+  }
+}
