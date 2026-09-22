@@ -3,6 +3,8 @@ package com.msb.solana.gateway.compliance;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msb.solana.gateway.serialization.Base58;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -24,6 +26,8 @@ import java.util.Optional;
  */
 @Component
 public class ThreatIntelligenceRegistry {
+
+    private static final Logger log = LoggerFactory.getLogger(ThreatIntelligenceRegistry.class);
 
     private static final String DATASET_RESOURCE = "compliance/threat-intelligence.json";
 
@@ -75,6 +79,7 @@ public class ThreatIntelligenceRegistry {
                 }
                 index.put(entry.address(), entry);
             }
+            log.info("Threat intelligence dataset loaded: {} addresses indexed", index.size());
             return Collections.unmodifiableMap(index);
         } catch (IOException e) {
             throw new IllegalStateException(
