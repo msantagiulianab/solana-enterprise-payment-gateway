@@ -57,8 +57,8 @@ console.log(`tool verification: ${pass} passed, ${fail} failed`);
 console.log(`========================================================`);
 if (fail === 0) {
   console.log("ALL CHECKS PASSED");
-  process.exit(0);
+  process.exitCode = 0;
 } else {
   console.log("VERIFICATION FAILED (is the Docker stack up? try: docker compose up -d --build)");
-  process.exit(1);
+  process.exitCode = 1;
 }
