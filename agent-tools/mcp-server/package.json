@@ -1,8 +1,18 @@
 {
   "name": "@msantagiulianab/x402-mcp-server",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Zero-bloat Model Context Protocol (MCP) server exposing the RFC 9110 x402 Solana compliance screening gateway to AI agents.",
   "author": "Michele Santagiuliana Busellato",
+  "license": "MIT",
+  "homepage": "https://github.com/msantagiulianab/solana-enterprise-payment-gateway#readme",
+  "bugs": {
+    "url": "https://github.com/msantagiulianab/solana-enterprise-payment-gateway/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/msantagiulianab/solana-enterprise-payment-gateway.git",
+    "directory": "agent-tools/mcp-server"
+  },
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -28,15 +38,17 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "modelcontextprotocol",
     "x402",
     "solana",
     "compliance",
     "sanctions",
+    "ofac",
     "ed25519",
+    "micropayments",
     "ai-agents"
   ],
-  "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^3.25.0"
