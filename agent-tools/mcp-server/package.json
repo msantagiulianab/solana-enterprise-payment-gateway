@@ -1,17 +1,24 @@
 {
-  "name": "@solana-gateway/x402-mcp-server",
-  "version": "1.0.0",
-  "description": "Zero-bloat Model Context Protocol server exposing the x402 screen-address compliance endpoint to AI agents (Claude Desktop, Cursor, ElizaOS).",
+  "name": "@msantagiulianab/x402-mcp-server",
+  "version": "1.0.3",
+  "description": "Zero-bloat Model Context Protocol (MCP) server exposing the RFC 9110 x402 Solana compliance screening gateway to AI agents.",
+  "author": "Michele Santagiuliana Busellato",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "x402-mcp-server": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node -e \"fs.writeFileSync('dist/index.js', fs.readFileSync('dist/index.js', 'utf8').replace(/\\r\\n/g, '\\n'))\"",
+    "prepack": "npm run build",
     "start": "node dist/index.js",
     "test": "npm run build && node --test test/base58.test.js test/ed25519.test.js test/x402-client.test.js test/mcp-server.test.js",
     "test:tool": "npm run build && node test-agent-call.js"
@@ -23,7 +30,8 @@
     "solana",
     "compliance",
     "sanctions",
-    "ed25519"
+    "ed25519",
+    "ai-agents"
   ],
   "license": "MIT",
   "dependencies": {

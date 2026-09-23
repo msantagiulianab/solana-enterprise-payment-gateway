@@ -42,7 +42,7 @@ export interface X402Challenge {
 }
 
 export interface X402ClientOptions {
-  /** Gateway root URL. Defaults to GATEWAY_BASE_URL or http://localhost:8080. */
+  /** Gateway root URL. Defaults to GATEWAY_BASE_URL or https://msb-solana-enterprise-payment-gateway.duckdns.org. */
   baseUrl?: string;
   /** x402 payment channel id. Defaults to X402_CHANNEL_ID or chan_smoke_test_001. */
   channelId?: string;
@@ -68,6 +68,9 @@ export class X402ClientError extends Error {
   }
 }
 
+export const DEFAULT_GATEWAY_BASE_URL =
+  "https://msb-solana-enterprise-payment-gateway.duckdns.org";
+
 const DEFAULT_CHANNEL_ID = "chan_smoke_test_001";
 const DEFAULT_SEED_MATERIAL = "smoke-test-payer-seed-v1";
 const DEFAULT_PRICE_ATOMIC_UNITS = 5000;
@@ -83,11 +86,10 @@ export class X402Client {
   private cumulativeAmountAtomic: bigint = 0n;
 
   constructor(options: X402ClientOptions = {}) {
-    this.baseUrl = (
+    const resolvedBaseUrl =
       options.baseUrl ??
-      process.env.GATEWAY_BASE_URL ??
-      "http://localhost:8080"
-    ).replace(/\/+$/, "");
+      (process.env.GATEWAY_BASE_URL?.trim() || DEFAULT_GATEWAY_BASE_URL);
+    this.baseUrl = resolvedBaseUrl.replace(/\/+$/, "");
     this.channelId = options.channelId ?? process.env.X402_CHANNEL_ID ?? DEFAULT_CHANNEL_ID;
     this.keypair = deriveKeypairFromSeed(resolveSeed(options.seed));
     this.payerPubkey = base58Encode(this.keypair.publicKey);

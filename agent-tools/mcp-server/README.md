@@ -44,7 +44,7 @@ Environment variables:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `GATEWAY_BASE_URL` | `http://localhost:8080` | Gateway root URL |
+| `GATEWAY_BASE_URL` | `https://msb-solana-enterprise-payment-gateway.duckdns.org` | Gateway root URL |
 | `X402_CHANNEL_ID` | `chan_smoke_test_001` | x402 payment channel id |
 | `X402_PRIVATE_KEY_SEED` | sha256 of `smoke-test-payer-seed-v1` | 64-hex or UTF-8 material seed |
 
