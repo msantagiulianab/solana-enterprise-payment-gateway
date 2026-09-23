@@ -11,7 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { isValidSolanaAddress } from "./base58.js";
-import { DEFAULT_GATEWAY_BASE_URL, X402Client, type ScreeningResult } from "./x402-client.js";
+import { resolveGatewayBaseUrl, resolveChannelId, X402Client, type ScreeningResult } from "./x402-client.js";
 
 const TOOL_NAME = "screen_solana_address";
 const TOOL_DESCRIPTION =
@@ -75,8 +75,8 @@ async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  const gateway = process.env.GATEWAY_BASE_URL?.trim() || DEFAULT_GATEWAY_BASE_URL;
-  const channelId = process.env.X402_CHANNEL_ID ?? "chan_smoke_test_001";
+  const gateway = resolveGatewayBaseUrl();
+  const channelId = resolveChannelId();
   process.stderr.write(
     `[x402-mcp] connected (gateway=${gateway}, channel=${channelId}, payer=${client.payerPublicKey})\n`,
   );

@@ -1,6 +1,6 @@
 {
   "name": "@msantagiulianab/x402-mcp-server",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Zero-bloat Model Context Protocol (MCP) server exposing the RFC 9110 x402 Solana compliance screening gateway to AI agents.",
   "author": "Michele Santagiuliana Busellato",
   "type": "module",

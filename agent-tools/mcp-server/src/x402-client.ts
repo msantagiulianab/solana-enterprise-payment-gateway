@@ -42,9 +42,9 @@ export interface X402Challenge {
 }
 
 export interface X402ClientOptions {
-  /** Gateway root URL. Defaults to GATEWAY_BASE_URL or https://msb-solana-enterprise-payment-gateway.duckdns.org. */
+  /** Gateway root URL. Defaults to X402_GATEWAY_URL (legacy fallback GATEWAY_BASE_URL) or https://msb-solana-enterprise-payment-gateway.duckdns.org. */
   baseUrl?: string;
-  /** x402 payment channel id. Defaults to X402_CHANNEL_ID or chan_smoke_test_001. */
+  /** x402 payment channel id. Defaults to X402_CHANNEL_ID (legacy fallback CHANNEL_ID) or chan_smoke_test_001. */
   channelId?: string;
   /**
    * 32-byte Ed25519 seed, as raw bytes, a 64-char hex string, or a UTF-8
@@ -75,6 +75,30 @@ const DEFAULT_CHANNEL_ID = "chan_smoke_test_001";
 const DEFAULT_SEED_MATERIAL = "smoke-test-payer-seed-v1";
 const DEFAULT_PRICE_ATOMIC_UNITS = 5000;
 
+/**
+ * Resolve the gateway root URL from the environment, preferring
+ * `X402_GATEWAY_URL` and falling back to the legacy `GATEWAY_BASE_URL`.
+ */
+export function resolveGatewayBaseUrl(): string {
+  return (
+    process.env.X402_GATEWAY_URL?.trim() ||
+    process.env.GATEWAY_BASE_URL?.trim() ||
+    DEFAULT_GATEWAY_BASE_URL
+  );
+}
+
+/**
+ * Resolve the x402 payment channel id, preferring `X402_CHANNEL_ID` and
+ * falling back to the legacy `CHANNEL_ID`.
+ */
+export function resolveChannelId(): string {
+  return (
+    process.env.X402_CHANNEL_ID?.trim() ||
+    process.env.CHANNEL_ID?.trim() ||
+    DEFAULT_CHANNEL_ID
+  );
+}
+
 export class X402Client {
   private readonly baseUrl: string;
   private readonly channelId: string;
@@ -86,11 +110,9 @@ export class X402Client {
   private cumulativeAmountAtomic: bigint = 0n;
 
   constructor(options: X402ClientOptions = {}) {
-    const resolvedBaseUrl =
-      options.baseUrl ??
-      (process.env.GATEWAY_BASE_URL?.trim() || DEFAULT_GATEWAY_BASE_URL);
+    const resolvedBaseUrl = options.baseUrl ?? resolveGatewayBaseUrl();
     this.baseUrl = resolvedBaseUrl.replace(/\/+$/, "");
-    this.channelId = options.channelId ?? process.env.X402_CHANNEL_ID ?? DEFAULT_CHANNEL_ID;
+    this.channelId = options.channelId ?? resolveChannelId();
     this.keypair = deriveKeypairFromSeed(resolveSeed(options.seed));
     this.payerPubkey = base58Encode(this.keypair.publicKey);
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
