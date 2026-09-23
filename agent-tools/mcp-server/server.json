@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.msantagiulianab/solana-x402-compliance",
+  "description": "RFC 9110 x402 Solana compliance screening and micropayments gateway for AI agents.",
+  "repository": {
+    "url": "https://github.com/msantagiulianab/solana-enterprise-payment-gateway",
+    "source": "github",
+    "subfolder": "agent-tools/mcp-server"
+  },
+  "version": "1.0.7",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@msantagiulianab/x402-mcp-server",
+      "version": "1.0.7",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

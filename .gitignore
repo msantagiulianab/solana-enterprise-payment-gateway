@@ -18,3 +18,8 @@ application-local.properties
 !.mvn/wrapper/
 !.mvn/wrapper/maven-wrapper.jar
 !.mvn/wrapper/maven-wrapper.properties
+
+# MCP Publisher CLI binary
+mcp-publisher.exe
+mcp-publisher
+mcp-publisher.tar.gz
