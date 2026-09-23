@@ -10,7 +10,7 @@
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white" />
   <img alt="x402 v2" src="https://img.shields.io/badge/x402-v2-9945FF" />
   <img alt="Ed25519" src="https://img.shields.io/badge/Ed25519-BouncyCastle-000000" />
-  <img alt="Tests 42" src="https://img.shields.io/badge/Tests-42_passed-brightgreen" />
+  <img alt="Tests 47" src="https://img.shields.io/badge/Tests-47_passed-brightgreen" />
 </p>
 
 > **Language / runtime note.** The Maven build targets **Java 21** bytecode
@@ -27,6 +27,96 @@ vouchers **in-memory in under 5ms** on the request hot path, persists every
 verification to an append-only PostgreSQL audit ledger, and sweeps cumulative
 channel balances on-chain in batched settlement transactions — all without any
 Node.js sidecar, Python bridge, or generic Web3 Java wrapper.
+
+## AI Agent Integration (Model Context Protocol)
+
+Autonomous AI agents can screen Solana addresses and settle compliance
+micro-payments through our published [Model Context Protocol](https://modelcontextprotocol.io)
+(MCP) server. The server is a **zero-dependency** x402 compliance tool: it speaks
+the RFC 9110 `402 Payment Required` challenge-and-response protocol natively,
+signs Ed25519 channel vouchers in-memory (Node.js built-in `crypto`, no Web3
+SDK), and negotiates settlement on every call.
+
+### Direct Execution
+
+```bash
+npx -y @msantagiulianab/x402-mcp-server
+```
+
+### Configuration
+
+The server reads two environment variables:
+
+| Variable | Value | Purpose |
+| --- | --- | --- |
+| `X402_GATEWAY_URL` | `https://msb-solana-enterprise-payment-gateway.duckdns.org` | Gateway root URL |
+| `X402_CHANNEL_ID` | `chan_smoke_test_001` | x402 payment channel id |
+
+#### Claude Desktop
+
+Add an entry to `claude_desktop_config.json`.
+
+**macOS / Linux**
+
+```json
+{
+  "mcpServers": {
+    "solana-x402-compliance": {
+      "command": "npx",
+      "args": ["-y", "@msantagiulianab/x402-mcp-server"],
+      "env": {
+        "X402_GATEWAY_URL": "https://msb-solana-enterprise-payment-gateway.duckdns.org",
+        "X402_CHANNEL_ID": "chan_smoke_test_001"
+      }
+    }
+  }
+}
+```
+
+**Windows**
+
+```json
+{
+  "mcpServers": {
+    "solana-x402-compliance": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@msantagiulianab/x402-mcp-server"],
+      "env": {
+        "X402_GATEWAY_URL": "https://msb-solana-enterprise-payment-gateway.duckdns.org",
+        "X402_CHANNEL_ID": "chan_smoke_test_001"
+      }
+    }
+  }
+}
+```
+
+#### VS Code Cline
+
+Add the server to `cline_mcp_settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "solana-x402-compliance": {
+      "command": "npx",
+      "args": ["-y", "@msantagiulianab/x402-mcp-server"],
+      "env": {
+        "X402_GATEWAY_URL": "https://msb-solana-enterprise-payment-gateway.duckdns.org",
+        "X402_CHANNEL_ID": "chan_smoke_test_001"
+      }
+    }
+  }
+}
+```
+
+### Verified Dual Compliance Screening Outcomes
+
+The `screen_solana_address` tool returns one of two verified outcomes:
+
+| Counterparty | Risk score | Verdict | Flags |
+| --- | --- | --- | --- |
+| Clear counterparty | `0` | `CLEAR_TO_TRANSACT` | none |
+| Malicious / sanctioned counterparty | `100` | `BLOCKED` | `OFAC_SANCTIONED` / drainer detection (`EXPLOIT_DRAINER`) |
 
 ---
 
@@ -309,6 +399,10 @@ a canonical and an `X-`-prefixed alias for forward compatibility.
 ### Example `curl` flows
 
 ```bash
+# 0) Machine-readable x402 discovery document (unauthenticated)
+curl -i http://localhost:8080/.well-known/x402.json
+# → HTTP/1.1 200 { "x402Version": 2, "name": "...", "services": [ ... ] }
+
 # 1) Unauthenticated request → 402 challenge
 curl -i -X POST http://localhost:8080/api/v1/compliance/screen-address \
   -H 'Content-Type: application/json' \
@@ -447,7 +541,7 @@ on any failure:
 ./mvnw clean test
 ```
 
-Runs the full **42-test** JUnit 5 suite against an in-memory H2 database in
+Runs the full **47-test** JUnit 5 suite against an in-memory H2 database in
 PostgreSQL mode (`src/test/resources/application-test.yml`) with Flyway applying
 the same `V1`/`V2` migrations. RPC mock mode is enabled so the suite is
 deterministic and never dials an external Solana node.
@@ -670,12 +764,13 @@ public class CustomProgramEscrowVerifier implements EscrowBalanceProvider {
     ├── main
     │   ├── java/com/msb/solana/gateway
     │   │   ├── SolanaPaymentGatewayApplication.java
+    │   │   ├── compliance/        AddressRiskEvaluator, ThreatIntelligenceRegistry, ScreeningVerdict, ScreeningResult, ScreeningFlag
     │   │   ├── config/            SolanaRpcConfig.java (JDK HttpClient bean)
-    │   │   ├── controller/        ComplianceScreeningController, SettlementController
+    │   │   ├── controller/        ComplianceScreeningController, SettlementController, X402DiscoveryController
     │   │   ├── entity/            PaymentAuditRecord, PaymentAuditStatus
     │   │   ├── filter/            X402PaymentFilter.java
     │   │   ├── model/             PaymentRequiredChallenge, PaymentVoucher,
-    │   │   │                      PaymentSettlementReceipt, SettlementResult
+    │   │   │                      PaymentSettlementReceipt, SettlementResult, X402DiscoveryResponse
     │   │   ├── repository/        PaymentAuditRepository.java
     │   │   ├── rpc/               SolanaRpcClient.java (+ model/* JSON-RPC DTOs)
     │   │   ├── serialization/     Base58, CompactU16, AccountMeta, SolanaInstruction,
@@ -690,16 +785,18 @@ public class CustomProgramEscrowVerifier implements EscrowBalanceProvider {
     │       └── db/migration/      V1__init_payment_audit_ledger.sql,
     │                              V2__add_settlement_tx_signature.sql
     └── test
-        ├── java/...              9 test classes (42 tests)
+        ├── java/...              11 test classes (47 tests)
         └── resources/application-test.yml   # H2 (PostgreSQL mode) + mock RPC
 ```
 
 ## 11. Testing
 
-The suite runs **42 tests** across 9 classes with JUnit 5, Mockito, and MockMvc:
+The suite runs **47 tests** across 11 classes with JUnit 5, Mockito, and MockMvc:
 
 | Test class | Focus |
 | --- | --- |
+| `AddressRiskEvaluatorTest` | OFAC / drainer blocklist, `CLEAR_TO_TRANSACT` / `BLOCKED`, malformed address → 400 |
+| `X402DiscoveryControllerTest` | `GET /.well-known/x402.json` discovery document |
 | `X402ProtocolIntegrationTest` | MockMvc: 402 challenge, valid voucher → 200, replay → 403, tampered signature → 403 |
 | `SettlementControllerIntegrationTest` | sweep endpoint → `VERIFIED → SETTLED` + `tx_signature` |
 | `ChannelSettlementServiceTest` | sweep transaction build, blockhash, sign, broadcast |
