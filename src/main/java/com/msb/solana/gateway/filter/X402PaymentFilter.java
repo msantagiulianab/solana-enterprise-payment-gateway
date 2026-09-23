@@ -48,6 +48,11 @@ public class X402PaymentFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/v1/settlement/")) {
             return true;
         }
+        // The machine-readable discovery document is public metadata; it must be
+        // reachable without a payment voucher so clients can negotiate payment.
+        if (path.startsWith("/.well-known/")) {
+            return true;
+        }
         return !path.startsWith("/api/v1/");
     }
 
