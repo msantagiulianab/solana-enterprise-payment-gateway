@@ -118,6 +118,15 @@ The `screen_solana_address` tool returns one of two verified outcomes:
 | Clear counterparty | `0` | `CLEAR_TO_TRANSACT` | none |
 | Malicious / sanctioned counterparty | `100` | `BLOCKED` | `OFAC_SANCTIONED` / drainer detection (`EXPLOIT_DRAINER`) |
 
+
+## Model Context Protocol (MCP) Server
+
+This repository contains the official open-source MCP server implementation located at [`/agent-tools/mcp-server`](./agent-tools/mcp-server).
+
+- **Implementation:** TypeScript ([`agent-tools/mcp-server/src`](./agent-tools/mcp-server/src))
+- **NPM Package:** [`@msantagiulianab/x402-mcp-server`](https://www.npmjs.com/package/@msantagiulianab/x402-mcp-server)
+- **Executable:** `npx -y @msantagiulianab/x402-mcp-server`
+
 ---
 
 ## Table of Contents
