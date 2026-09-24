@@ -1,7 +1,6 @@
 {
-  "version": "1",
-  "homepage": "https://github.com/msantagiulianab/solana-enterprise-payment-gateway",
-  "description": "RFC 9110 x402 Solana compliance screening and micropayments gateway for AI agents.",
-  "repository": "https://github.com/msantagiulianab/solana-enterprise-payment-gateway",
-  "license": "Apache-2.0"
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "maintainers": [
+    "msantagiulianab"
+  ]
 }
