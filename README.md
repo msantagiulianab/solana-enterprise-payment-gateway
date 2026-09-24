@@ -12,7 +12,7 @@
   <img alt="Ed25519" src="https://img.shields.io/badge/Ed25519-BouncyCastle-000000" />
   <img alt="Tests 47" src="https://img.shields.io/badge/Tests-47_passed-brightgreen" />
   <a href="https://registry.modelcontextprotocol.io/v0.1/servers/io.github.msantagiulianab%2Fsolana-x402-compliance/versions/latest"><img src="https://img.shields.io/badge/MCP%20Registry-active-blue" alt="MCP Registry"></a>
-  <a href="https://glama.ai/mcp/servers/msantagiulianab/solana-enterprise-payment-gateway"><img src="https://glama.ai/mcp/servers/msantagiulianab/solana-enterprise-payment-gateway/badge" alt="Glama MCP"></a>
+  <a href="https://glama.ai/mcp/servers/msantagiulianab/solana-enterprise-payment-gateway"><img src="https://glama.ai/mcp/servers/msantagiulianab/solana-enterprise-payment-gateway/badges/score.svg" alt="Glama MCP"></a>
 </p>
 
 > **Language / runtime note.** The Maven build targets **Java 21** bytecode
