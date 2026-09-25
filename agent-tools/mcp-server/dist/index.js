@@ -80,7 +80,7 @@ function deriveReportId(identifier) {
 export function createServer(client) {
     const server = new McpServer({
         name: "x402-compliance-gateway",
-        version: "1.0.0",
+        version: "1.0.4",
     });
     server.registerTool(TOOL_NAME, {
         description: TOOL_DESCRIPTION,

@@ -111,7 +111,7 @@ function deriveReportId(identifier: string): string {
 export function createServer(client: X402Client): McpServer {
   const server = new McpServer({
     name: "x402-compliance-gateway",
-    version: "1.0.0",
+    version: "1.0.4",
   });
 
   server.registerTool(
