@@ -15,25 +15,76 @@ import { base58Encode, isValidSolanaAddress, isValidSolanaIdentifier } from "./b
 import { resolveGatewayBaseUrl, resolveChannelId, X402Client, type ScreeningResult } from "./x402-client.js";
 
 const TOOL_NAME = "screen_solana_address";
-const TOOL_DESCRIPTION =
-  "Inspect a Solana address against sanctions and threat intelligence databases. " +
-  "Automatically negotiates and settles micro-payments via x402.";
+const TOOL_DESCRIPTION = [
+  "Screen a Solana wallet address in real time against sanctions and threat intelligence",
+  "databases. This is the live, network-bound compliance check: it automatically negotiates",
+  "and settles an x402 micro-payment, then returns the gateway's screening verdict, risk",
+  "score, and any matching flags.",
+  "",
+  "Use this when you need an authoritative, up-to-date screening decision for an address",
+  "before transacting with it. For a deterministic, offline audit record instead, use",
+  "generate_compliance_report; to validate a payment itself, use verify_x402_payment.",
+  "",
+  "Returns a JSON object: { address, verdict ('CLEAR_TO_TRANSACT' | 'BLOCKED'), riskScore",
+  "(0-100), flags[], sanctionsMatch (boolean), lastEvaluated, evaluationTimestamp }.",
+  "On gateway or payment failure it returns isError with the underlying message.",
+].join("\n");
 
-const solanaAddressSchema = z.string().refine(isValidSolanaAddress, {
-  message: "address must be a valid Base58 Solana public key (decodes to 32 bytes)",
-});
+const solanaAddressSchema = z
+  .string()
+  .describe(
+    "Base58-encoded Solana wallet address (32-byte public key, 32-44 characters). " +
+      "Example: '4Nd1mBQtrMJVYVfKf2PJy9NZGibCcTRxpETqdrBHu19Y'.",
+  )
+  .refine(isValidSolanaAddress, {
+    message: "address must be a valid Base58 Solana public key (decodes to 32 bytes)",
+  });
 
 const CHANNEL_STATUS_TOOL_NAME = "get_channel_status";
-const CHANNEL_STATUS_TOOL_DESCRIPTION =
-  "Retrieve current operational status, limits, and settlement state of a given x402 payment channel.";
+const CHANNEL_STATUS_TOOL_DESCRIPTION = [
+  "Retrieve the current operational status, limits, and settlement state of an x402 payment",
+  "channel, identified by its channel_id.",
+  "",
+  "Use this as the first step of the channel lifecycle before screening an address or verifying",
+  "a payment: confirm the channel is ACTIVE and has capacity so a downstream x402 micro-payment",
+  "can settle.",
+  "",
+  "Returns a JSON object: { channelId, status ('ACTIVE'), currency ('USDC'), network",
+  "('solana-devnet'), capacity ('10000.00'), lastSettlementBlock }. A blank or malformed",
+  "channel_id is rejected with a validation error.",
+].join("\n");
 
 const COMPLIANCE_REPORT_TOOL_NAME = "generate_compliance_report";
-const COMPLIANCE_REPORT_TOOL_DESCRIPTION =
-  "Generate an immutable audit summary report for a Solana wallet address or transaction signature against sanctions and threat intelligence logs.";
+const COMPLIANCE_REPORT_TOOL_DESCRIPTION = [
+  "Generate an immutable audit summary report for a Solana wallet address or transaction",
+  "signature, checked against sanctions and threat intelligence logs.",
+  "",
+  "Unlike screen_solana_address (a live, paid network screening), this tool is deterministic",
+  "and side-effect-free: it performs no network call, settles no payment, and returns a stable",
+  "audit record with a reproducible reportId. Choose this when you need an offline, auditable",
+  "compliance artifact rather than a live screening verdict.",
+  "",
+  "Returns a JSON audit payload: { identifier, complianceStatus ('PASSED'), riskScore (0.0),",
+  "checkedLists (['OFAC','EU_SANCTIONS','CHAIN_REPUTATION']), timestamp (ISO-8601), reportId",
+  "('rpt_' + 32 hex chars, SHA-256 derived) }. A blank or malformed identifier is rejected",
+  "with a validation error.",
+].join("\n");
 
 const VERIFY_PAYMENT_TOOL_NAME = "verify_x402_payment";
-const VERIFY_PAYMENT_TOOL_DESCRIPTION =
-  "Verify cryptographic validity and on-chain settlement state of an x402 payment proof or transaction signature.";
+const VERIFY_PAYMENT_TOOL_DESCRIPTION = [
+  "Verify cryptographic validity and on-chain settlement state of an x402 payment proof or",
+  "transaction signature.",
+  "",
+  "Use this to confirm that a payment proof is well-formed and whether it has been settled",
+  "against a channel. Prefer screen_solana_address for sanctions/threat screening of an",
+  "address; use this tool for payment proof validation.",
+  "",
+  "Returns a JSON object: { status ('valid' | 'settled' | 'invalid'), payerPublicKey (Base58),",
+  "amountAtomicUnits (number), amount ('0.005000'), currency ('USDC'), timestamp (ISO-8601) }.",
+  "status semantics: 'valid' = proof well-formed but not yet settled (no channelId);",
+  "'settled' = proof valid and settled on the supplied channelId; 'invalid' = proof is not a",
+  "valid Base58 Solana address or transaction signature.",
+].join("\n");
 
 const VERIFY_PAYMENT_AMOUNT_ATOMIC_UNITS = 5000;
 const USDC_DECIMALS = 6;
@@ -47,6 +98,10 @@ export function isValidChannelId(channelId: string): boolean {
 
 const channelIdSchema = z
   .string()
+  .describe(
+    "x402 payment channel identifier (1-128 chars; alphanumeric plus '.', '-', '_'). " +
+      "Example: 'chan_smoke_test_001'.",
+  )
   .trim()
   .min(1, "channel_id must not be blank")
   .refine(isValidChannelId, {
@@ -56,6 +111,12 @@ const channelIdSchema = z
 
 const solanaIdentifierSchema = z
   .string()
+  .describe(
+    "Solana identifier to report on: either a Base58 wallet address (32-byte public key) or a " +
+      "Base58 transaction signature (64 bytes). Example address: " +
+      "'4Nd1mBQtrMJVYVfKf2PJy9NZGibCcTRxpETqdrBHu19Y'. Example signature: " +
+      "'3zKcze3Q9DDRui2YCMeTPsBs3mxymxMN3oCvNDVKkrbgtZsR6CVfrLaMPd1kVHjoiAYEqTLNYxAzeABmdBMWSWhm'.",
+  )
   .trim()
   .min(1, "identifier must not be blank")
   .refine(isValidSolanaIdentifier, {
@@ -65,10 +126,23 @@ const solanaIdentifierSchema = z
 
 const paymentProofSchema = z
   .string()
+  .describe(
+    "x402 payment proof to verify: a Base58 Solana transaction signature (64 bytes) or wallet " +
+      "address (32 bytes). Example: " +
+      "'3zKcze3Q9DDRui2YCMeTPsBs3mxymxMN3oCvNDVKkrbgtZsR6CVfrLaMPd1kVHjoiAYEqTLNYxAzeABmdBMWSWhm'.",
+  )
   .trim()
   .min(1, "payment_proof must not be blank");
 
-const optionalChannelIdSchema = z.string().trim().optional();
+const optionalChannelIdSchema = z
+  .string()
+  .describe(
+    "Optional x402 channel identifier (alphanumeric plus '.', '-', '_'). When supplied and " +
+      "valid, the proof is reported as 'settled'; omit it to report 'valid'. " +
+      "Example: 'chan_smoke_test_001'.",
+  )
+  .trim()
+  .optional();
 
 export function formatScreeningResult(result: ScreeningResult): string {
   return JSON.stringify(
@@ -173,7 +247,7 @@ function formatUsdcAmount(atomicUnits: number): string {
 export function createServer(client: X402Client): McpServer {
   const server = new McpServer({
     name: "x402-compliance-gateway",
-    version: "1.0.10",
+    version: "1.0.12",
   });
 
   server.registerTool(
