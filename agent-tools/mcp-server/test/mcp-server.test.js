@@ -208,3 +208,57 @@ test(
     }
   },
 );
+
+test(
+  "exposes and executes the verify_x402_payment MCP tool over stdio",
+  { timeout: 30000 },
+  async () => {
+    const client = await connectServer();
+    try {
+      const tools = await client.listTools();
+      const tool = tools.tools.find((t) => t.name === "verify_x402_payment");
+      assert.ok(tool, "verify_x402_payment tool is registered");
+      assert.match(tool.description, /cryptographic validity/);
+
+      const valid = await client.callTool({
+        name: "verify_x402_payment",
+        arguments: { paymentProof: TX_SIGNATURE },
+      });
+      const validText = valid.content.find((c) => c.type === "text")?.text ?? "";
+      const validProof = JSON.parse(validText);
+      assert.equal(validProof.status, "valid");
+      assert.ok(validProof.payerPublicKey, "payer public key is present");
+      assert.ok(Number.isInteger(validProof.amountAtomicUnits));
+      assert.ok(validProof.amountAtomicUnits > 0);
+      assert.equal(validProof.amount, "0.005000");
+      assert.equal(validProof.currency, "USDC");
+      assert.ok(validProof.timestamp, "timestamp is present");
+
+      const settled = await client.callTool({
+        name: "verify_x402_payment",
+        arguments: { paymentProof: CLEAN_ADDRESS, channelId: "chan_smoke_test_001" },
+      });
+      const settledText = settled.content.find((c) => c.type === "text")?.text ?? "";
+      const settledProof = JSON.parse(settledText);
+      assert.equal(settledProof.status, "settled");
+
+      const invalid = await client.callTool({
+        name: "verify_x402_payment",
+        arguments: { paymentProof: "not-a-valid-proof" },
+      });
+      const invalidText = invalid.content.find((c) => c.type === "text")?.text ?? "";
+      const invalidProof = JSON.parse(invalidText);
+      assert.equal(invalidProof.status, "invalid");
+      assert.equal(invalidProof.payerPublicKey, "");
+      assert.equal(invalidProof.amountAtomicUnits, 0);
+
+      const blank = await client.callTool({
+        name: "verify_x402_payment",
+        arguments: { paymentProof: "   " },
+      });
+      assert.equal(blank.isError, true);
+    } finally {
+      await client.close();
+    }
+  },
+);
