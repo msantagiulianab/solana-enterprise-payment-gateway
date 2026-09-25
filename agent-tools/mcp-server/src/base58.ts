@@ -109,3 +109,16 @@ export function isValidSolanaAddress(address: string): boolean {
     return false;
   }
 }
+
+/**
+ * A Solana identifier is either a 32-byte public key (wallet address) or a
+ * 64-byte transaction signature, both Base58-encoded.
+ */
+export function isValidSolanaIdentifier(identifier: string): boolean {
+  try {
+    const length = base58Decode(identifier.trim()).length;
+    return length === 32 || length === 64;
+  } catch {
+    return false;
+  }
+}

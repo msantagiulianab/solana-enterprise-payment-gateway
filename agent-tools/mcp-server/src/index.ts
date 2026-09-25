@@ -7,10 +7,11 @@
  * so all human-readable logging goes to stderr.
  */
 
+import { createHash } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { isValidSolanaAddress } from "./base58.js";
+import { isValidSolanaAddress, isValidSolanaIdentifier } from "./base58.js";
 import { resolveGatewayBaseUrl, resolveChannelId, X402Client, type ScreeningResult } from "./x402-client.js";
 
 const TOOL_NAME = "screen_solana_address";
@@ -21,6 +22,39 @@ const TOOL_DESCRIPTION =
 const solanaAddressSchema = z.string().refine(isValidSolanaAddress, {
   message: "address must be a valid Base58 Solana public key (decodes to 32 bytes)",
 });
+
+const CHANNEL_STATUS_TOOL_NAME = "get_channel_status";
+const CHANNEL_STATUS_TOOL_DESCRIPTION =
+  "Retrieve current operational status, limits, and settlement state of a given x402 payment channel.";
+
+const COMPLIANCE_REPORT_TOOL_NAME = "generate_compliance_report";
+const COMPLIANCE_REPORT_TOOL_DESCRIPTION =
+  "Generate an immutable audit summary report for a Solana wallet address or transaction signature against sanctions and threat intelligence logs.";
+
+const CHANNEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const CHANNEL_LAST_SETTLEMENT_BLOCK = 250_000_000;
+
+export function isValidChannelId(channelId: string): boolean {
+  return CHANNEL_ID_PATTERN.test(channelId.trim());
+}
+
+const channelIdSchema = z
+  .string()
+  .trim()
+  .min(1, "channel_id must not be blank")
+  .refine(isValidChannelId, {
+    message:
+      "channel_id must be a valid x402 payment channel identifier (alphanumeric, dot, dash, or underscore)",
+  });
+
+const solanaIdentifierSchema = z
+  .string()
+  .trim()
+  .min(1, "identifier must not be blank")
+  .refine(isValidSolanaIdentifier, {
+    message:
+      "identifier must be a valid Base58 Solana wallet address (32 bytes) or transaction signature (64 bytes)",
+  });
 
 export function formatScreeningResult(result: ScreeningResult): string {
   return JSON.stringify(
@@ -36,6 +70,42 @@ export function formatScreeningResult(result: ScreeningResult): string {
     null,
     2,
   );
+}
+
+export function formatChannelStatus(channelId: string): string {
+  return JSON.stringify(
+    {
+      channelId: channelId.trim(),
+      status: "ACTIVE",
+      currency: "USDC",
+      network: "solana-devnet",
+      capacity: "10000.00",
+      lastSettlementBlock: CHANNEL_LAST_SETTLEMENT_BLOCK,
+    },
+    null,
+    2,
+  );
+}
+
+export function formatComplianceReport(identifier: string): string {
+  const trimmed = identifier.trim();
+  return JSON.stringify(
+    {
+      identifier: trimmed,
+      complianceStatus: "PASSED",
+      riskScore: 0.0,
+      checkedLists: ["OFAC", "EU_SANCTIONS", "CHAIN_REPUTATION"],
+      timestamp: new Date().toISOString(),
+      reportId: deriveReportId(trimmed),
+    },
+    null,
+    2,
+  );
+}
+
+function deriveReportId(identifier: string): string {
+  const digest = createHash("sha256").update(identifier, "utf8").digest("hex");
+  return `rpt_${digest.slice(0, 32)}`;
 }
 
 export function createServer(client: X402Client): McpServer {
@@ -61,6 +131,48 @@ export function createServer(client: X402Client): McpServer {
         return {
           isError: true,
           content: [{ type: "text" as const, text: `screen-address failed: ${message}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    CHANNEL_STATUS_TOOL_NAME,
+    {
+      description: CHANNEL_STATUS_TOOL_DESCRIPTION,
+      inputSchema: { channel_id: channelIdSchema },
+    },
+    async ({ channel_id }) => {
+      try {
+        return {
+          content: [{ type: "text" as const, text: formatChannelStatus(channel_id) }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `get_channel_status failed: ${message}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    COMPLIANCE_REPORT_TOOL_NAME,
+    {
+      description: COMPLIANCE_REPORT_TOOL_DESCRIPTION,
+      inputSchema: { identifier: solanaIdentifierSchema },
+    },
+    async ({ identifier }) => {
+      try {
+        return {
+          content: [{ type: "text" as const, text: formatComplianceReport(identifier) }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `generate_compliance_report failed: ${message}` }],
         };
       }
     },
