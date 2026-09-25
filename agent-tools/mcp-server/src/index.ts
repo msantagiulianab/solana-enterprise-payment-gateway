@@ -61,11 +61,14 @@ const COMPLIANCE_REPORT_TOOL_DESCRIPTION = [
   "",
   "Unlike screen_solana_address (a live, paid network screening), this tool is deterministic",
   "and side-effect-free: it performs no network call, settles no payment, and returns a stable",
-  "audit record with a reproducible reportId. Choose this when you need an offline, auditable",
-  "compliance artifact rather than a live screening verdict.",
+  "audit record with a reproducible reportId. It references the current session's in-memory",
+  "screening ledger: if the identifier has not been live-screened this session, it returns",
+  "complianceStatus 'UNSCREENED' with a null riskScore and an empty checkedLists array.",
   "",
-  "Returns a JSON audit payload: { identifier, complianceStatus ('PASSED'), riskScore (0.0),",
-  "checkedLists (['OFAC','EU_SANCTIONS','CHAIN_REPUTATION']), timestamp (ISO-8601), reportId",
+  "Returns a JSON audit payload: { identifier, complianceStatus ('PASSED' | 'FLAGGED' |",
+  "'UNSCREENED'), riskScore (number or null), flags (string[]), sanctionsMatch (boolean),",
+  "checkedLists ([] when unscreened, otherwise ['OFAC','EU_SANCTIONS','CHAIN_REPUTATION']),",
+  "lastEvaluated, evaluationTimestamp, timestamp (ISO-8601), reportId",
   "('rpt_' + 32 hex chars, SHA-256 derived) }. A blank or malformed identifier is rejected",
   "with a validation error.",
 ].join("\n");
@@ -160,6 +163,63 @@ export function formatScreeningResult(result: ScreeningResult): string {
   );
 }
 
+export interface ScreeningRecord {
+  address: string;
+  verdict: "CLEAR_TO_TRANSACT" | "BLOCKED";
+  riskScore: number;
+  flags: string[];
+  sanctionsMatch: boolean;
+  lastEvaluated: string;
+  evaluationTimestamp: string;
+}
+
+/**
+ * In-memory audit ledger tracking live screenings during the server's lifetime,
+ * keyed by the screened Solana address. generate_compliance_report consults this
+ * ledger so it can fail closed (return UNSCREENED) for any identifier that has
+ * never undergone an authoritative live screening.
+ */
+const screeningLedger = new Map<string, ScreeningRecord>();
+
+export function recordScreening(record: ScreeningRecord): void {
+  screeningLedger.set(record.address, record);
+}
+
+export function clearScreeningLedger(): void {
+  screeningLedger.clear();
+}
+
+export function getScreeningRecord(address: string): ScreeningRecord | undefined {
+  return screeningLedger.get(address);
+}
+
+function toScreeningRecord(result: ScreeningResult): ScreeningRecord {
+  const lastEvaluated =
+    typeof result.lastEvaluated === "string" && result.lastEvaluated.length > 0
+      ? result.lastEvaluated
+      : new Date().toISOString();
+  return {
+    address: result.address,
+    verdict: result.verdict === "BLOCKED" ? "BLOCKED" : "CLEAR_TO_TRANSACT",
+    riskScore: result.riskScore,
+    flags: (result.flags ?? []).map((flag) => flag.category),
+    sanctionsMatch: result.sanctionsMatch,
+    lastEvaluated,
+    evaluationTimestamp: toEvaluationTimestamp(result, lastEvaluated),
+  };
+}
+
+function toEvaluationTimestamp(result: ScreeningResult, fallback: string): string {
+  if (
+    typeof result.timestamp === "number" &&
+    Number.isFinite(result.timestamp) &&
+    result.timestamp > 0
+  ) {
+    return new Date(result.timestamp).toISOString();
+  }
+  return fallback;
+}
+
 export function formatChannelStatus(channelId: string): string {
   return JSON.stringify(
     {
@@ -177,12 +237,35 @@ export function formatChannelStatus(channelId: string): string {
 
 export function formatComplianceReport(identifier: string): string {
   const trimmed = identifier.trim();
+  const record = screeningLedger.get(trimmed);
+
+  if (!record) {
+    return JSON.stringify(
+      {
+        identifier: trimmed,
+        complianceStatus: "UNSCREENED",
+        riskScore: null,
+        checkedLists: [],
+        timestamp: new Date().toISOString(),
+        reportId: deriveReportId(trimmed),
+        message:
+          "No active screening record found for this identifier. Run screen_solana_address to execute an authoritative live screening against OFAC and sanctions databases.",
+      },
+      null,
+      2,
+    );
+  }
+
   return JSON.stringify(
     {
       identifier: trimmed,
-      complianceStatus: "PASSED",
-      riskScore: 0.0,
+      complianceStatus: record.verdict === "CLEAR_TO_TRANSACT" ? "PASSED" : "FLAGGED",
+      riskScore: record.riskScore,
+      flags: record.flags,
+      sanctionsMatch: record.sanctionsMatch,
       checkedLists: ["OFAC", "EU_SANCTIONS", "CHAIN_REPUTATION"],
+      lastEvaluated: record.lastEvaluated,
+      evaluationTimestamp: record.evaluationTimestamp,
       timestamp: new Date().toISOString(),
       reportId: deriveReportId(trimmed),
     },
@@ -259,6 +342,7 @@ export function createServer(client: X402Client): McpServer {
     async ({ address }) => {
       try {
         const result = await client.screenAddress(address);
+        recordScreening(toScreeningRecord(result));
         return {
           content: [{ type: "text" as const, text: formatScreeningResult(result) }],
         };

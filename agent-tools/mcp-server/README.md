@@ -92,9 +92,15 @@ The tool `generate_compliance_report`:
   intelligence logs._
 - **Input:** `identifier` — a Solana wallet address (32-byte Base58) or a
   transaction signature (64-byte Base58).
-- **Output:** formatted JSON text containing `complianceStatus` (`"PASSED"`),
-  `riskScore` (`0.0`), `checkedLists` (`["OFAC", "EU_SANCTIONS",
-  "CHAIN_REPUTATION"]`), `timestamp`, and `reportId`.
+- **Output:** formatted JSON text containing `complianceStatus` (`"PASSED"` |
+  `"FLAGGED"` | `"UNSCREENED"`), `riskScore` (a number for screened
+  identifiers, `null` when unscreened), `flags`, `sanctionsMatch`,
+  `checkedLists` (`[]` when unscreened, otherwise
+  `["OFAC", "EU_SANCTIONS", "CHAIN_REPUTATION"]`), `lastEvaluated`,
+  `evaluationTimestamp`, `timestamp`, and `reportId`. The report fails closed:
+  it references the session's in-memory screening ledger and returns
+  `"UNSCREENED"` until the identifier has been live-screened via
+  `screen_solana_address`.
 
 ## Architecture & Sync Workflow
 

@@ -165,32 +165,92 @@ test(
   "exposes and executes the generate_compliance_report MCP tool over stdio",
   { timeout: 30000 },
   async () => {
-    const client = await connectServer();
+    const gw = await startGateway();
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [SERVER_ENTRY],
+      env: { ...process.env, GATEWAY_BASE_URL: `http://127.0.0.1:${gw.port}` },
+    });
+    const client = new Client({ name: "test-agent", version: "1.0.0" });
+
     try {
+      await client.connect(transport);
+
       const tools = await client.listTools();
       const tool = tools.tools.find((t) => t.name === "generate_compliance_report");
       assert.ok(tool, "generate_compliance_report tool is registered");
       assert.match(tool.description, /immutable audit summary/);
 
-      const addressResult = await client.callTool({
+      // Fail-closed default: an address with no live screening returns UNSCREENED.
+      const unscreened = await client.callTool({
         name: "generate_compliance_report",
         arguments: { identifier: CLEAN_ADDRESS },
       });
-      const addressText = addressResult.content.find((c) => c.type === "text")?.text ?? "";
-      const addressReport = JSON.parse(addressText);
-      assert.equal(addressReport.identifier, CLEAN_ADDRESS);
-      assert.equal(addressReport.complianceStatus, "PASSED");
-      assert.equal(addressReport.riskScore, 0);
-      assert.deepEqual(addressReport.checkedLists, ["OFAC", "EU_SANCTIONS", "CHAIN_REPUTATION"]);
-      assert.ok(addressReport.timestamp, "timestamp is present");
-      assert.match(addressReport.reportId, /^rpt_[0-9a-f]{32}$/);
+      const unscreenedText = unscreened.content.find((c) => c.type === "text")?.text ?? "";
+      const unscreenedReport = JSON.parse(unscreenedText);
+      assert.equal(unscreenedReport.identifier, CLEAN_ADDRESS);
+      assert.equal(unscreenedReport.complianceStatus, "UNSCREENED");
+      assert.equal(unscreenedReport.riskScore, null);
+      assert.deepEqual(unscreenedReport.checkedLists, []);
+      assert.ok(unscreenedReport.timestamp, "timestamp is present");
+      assert.match(unscreenedReport.reportId, /^rpt_[0-9a-f]{32}$/);
+      assert.match(unscreenedReport.message, /screen_solana_address/);
 
+      // A transaction signature can never be live-screened, so it stays UNSCREENED.
       const sigResult = await client.callTool({
         name: "generate_compliance_report",
         arguments: { identifier: TX_SIGNATURE },
       });
       const sigText = sigResult.content.find((c) => c.type === "text")?.text ?? "";
-      assert.match(sigText, /PASSED/);
+      const sigReport = JSON.parse(sigText);
+      assert.equal(sigReport.complianceStatus, "UNSCREENED");
+      assert.equal(sigReport.riskScore, null);
+
+      // After a live screening of a clean address, the report reflects the recorded verdict.
+      const cleanScreen = await client.callTool({
+        name: "screen_solana_address",
+        arguments: { address: CLEAN_ADDRESS },
+      });
+      const cleanScreenText = cleanScreen.content.find((c) => c.type === "text")?.text ?? "";
+      assert.match(cleanScreenText, /CLEAR_TO_TRANSACT/);
+
+      const cleanReport = await client.callTool({
+        name: "generate_compliance_report",
+        arguments: { identifier: CLEAN_ADDRESS },
+      });
+      const cleanText = cleanReport.content.find((c) => c.type === "text")?.text ?? "";
+      const cleanPayload = JSON.parse(cleanText);
+      assert.equal(cleanPayload.identifier, CLEAN_ADDRESS);
+      assert.equal(cleanPayload.complianceStatus, "PASSED");
+      assert.equal(cleanPayload.riskScore, 0);
+      assert.deepEqual(cleanPayload.flags, []);
+      assert.equal(cleanPayload.sanctionsMatch, false);
+      assert.deepEqual(cleanPayload.checkedLists, ["OFAC", "EU_SANCTIONS", "CHAIN_REPUTATION"]);
+      assert.ok(cleanPayload.lastEvaluated, "lastEvaluated is present");
+      assert.ok(cleanPayload.evaluationTimestamp, "evaluationTimestamp is present");
+      assert.match(cleanPayload.reportId, /^rpt_[0-9a-f]{32}$/);
+
+      // After a live screening of a flagged address, the report reflects FLAGGED.
+      const flaggedScreen = await client.callTool({
+        name: "screen_solana_address",
+        arguments: { address: FLAGGED_ADDRESS },
+      });
+      const flaggedScreenText = flaggedScreen.content.find((c) => c.type === "text")?.text ?? "";
+      assert.match(flaggedScreenText, /BLOCKED/);
+
+      const flaggedReport = await client.callTool({
+        name: "generate_compliance_report",
+        arguments: { identifier: FLAGGED_ADDRESS },
+      });
+      const flaggedText = flaggedReport.content.find((c) => c.type === "text")?.text ?? "";
+      const flaggedPayload = JSON.parse(flaggedText);
+      assert.equal(flaggedPayload.identifier, FLAGGED_ADDRESS);
+      assert.equal(flaggedPayload.complianceStatus, "FLAGGED");
+      assert.equal(flaggedPayload.riskScore, 100);
+      assert.equal(flaggedPayload.sanctionsMatch, true);
+      assert.deepEqual(flaggedPayload.flags, ["OFAC_SANCTIONED"]);
+      assert.deepEqual(flaggedPayload.checkedLists, ["OFAC", "EU_SANCTIONS", "CHAIN_REPUTATION"]);
+      assert.match(flaggedText, /OFAC_SANCTIONED/);
 
       const blank = await client.callTool({
         name: "generate_compliance_report",
@@ -205,6 +265,7 @@ test(
       assert.equal(malformed.isError, true);
     } finally {
       await client.close();
+      gw.server.close();
     }
   },
 );
