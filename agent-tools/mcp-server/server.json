@@ -7,12 +7,14 @@
     "source": "github",
     "subfolder": "agent-tools/mcp-server"
   },
-  "version": "1.0.8",
+  "version": "1.0.4",
   "packages": [
     {
-      "registryType": "npm",
-      "identifier": "@msantagiulianab/x402-mcp-server",
-      "version": "1.0.8",
+      "registryType": "git",
+      "identifier": "https://github.com/msantagiulianab/solana-enterprise-payment-gateway",
+      "version": "1.0.4",
+      "runtimeHint": "node",
+      "runtimeArguments": ["dist/index.js"],
       "transport": {
         "type": "stdio"
       }
