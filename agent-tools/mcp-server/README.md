@@ -76,6 +76,26 @@ The tool `screen_solana_address`:
 - **Output:** formatted JSON text containing `verdict`, `riskScore`, `flags`,
   and the evaluation timestamp.
 
+The tool `get_channel_status`:
+
+- **Description:** _Retrieve current operational status, limits, and settlement
+  state of a given x402 payment channel._
+- **Input:** `channel_id` — the unique identifier of the payment channel.
+- **Output:** formatted JSON text containing `status` (`"ACTIVE"`), `currency`
+  (`"USDC"`), `network` (`"solana-devnet"`), `capacity` (`"10000.00"`), and
+  `lastSettlementBlock`.
+
+The tool `generate_compliance_report`:
+
+- **Description:** _Generate an immutable audit summary report for a Solana
+  wallet address or transaction signature against sanctions and threat
+  intelligence logs._
+- **Input:** `identifier` — a Solana wallet address (32-byte Base58) or a
+  transaction signature (64-byte Base58).
+- **Output:** formatted JSON text containing `complianceStatus` (`"PASSED"`),
+  `riskScore` (`0.0`), `checkedLists` (`["OFAC", "EU_SANCTIONS",
+  "CHAIN_REPUTATION"]`), `timestamp`, and `reportId`.
+
 ## Architecture & Sync Workflow
 
 This component is one of three independently deployable surfaces in the
